@@ -1,0 +1,82 @@
+name: FlowPulse CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  test-django:
+    name: Test Django Control Plane
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: flowpulse_test_db
+          POSTGRES_USER: flowpulse_user
+          POSTGRES_PASSWORD: flowpulse_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: "pip"
+
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend-django/requirements.txt
+
+    - name: Run Django Migrations & Pytest
+      env:
+        POSTGRES_DB: flowpulse_test_db
+        POSTGRES_USER: flowpulse_user
+        POSTGRES_PASSWORD: flowpulse_password
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        DJANGO_SECRET_KEY: test-key-ci
+      run: |
+        cd backend-django
+        python manage.py test
+
+  test-dotnet:
+    name: Test .NET Workflow Engine
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET 8 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore Dependencies
+      run: dotnet restore engine-dotnet/FlowPulse.Engine.sln
+
+    - name: Build Engine
+      run: dotnet build engine-dotnet/FlowPulse.Engine.sln --no-restore -c Release
+
+    - name: Run .NET Unit Tests
+      run: dotnet test engine-dotnet/FlowPulse.Engine.Tests/FlowPulse.Engine.Tests.csproj --no-build -c Release --verbosity normal
+
+  docker-compose-lint:
+    name: Validate Docker Compose Configuration
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Validate Docker Compose Config
+      run: docker compose config

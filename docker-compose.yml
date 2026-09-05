@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: flowpulse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-flowpulse_db}
+      POSTGRES_USER: ${POSTGRES_USER:-flowpulse_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flowpulse_secure_password_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flowpulse_user} -d ${POSTGRES_DB:-flowpulse_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: flowpulse-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  web-django:
+    build:
+      context: ./backend-django
+      dockerfile: Dockerfile
+    container_name: flowpulse-django-api
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py wait_for_db &&
+             python manage.py migrate &&
+             python manage.py init_demo_data &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend-django:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-flowpulse_db}
+      - POSTGRES_USER=${POSTGRES_USER:-flowpulse_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-flowpulse_secure_password_2026}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-django-insecure-flowpulse-super-secret-key}
+      - DJANGO_DEBUG=True
+      - WORKFLOW_ENGINE_URL=http://engine-dotnet:5050
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  engine-dotnet:
+    build:
+      context: ./engine-dotnet
+      dockerfile: Dockerfile
+    container_name: flowpulse-dotnet-engine
+    restart: unless-stopped
+    ports:
+      - "5050:5050"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5050
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-flowpulse_db};Username=${POSTGRES_USER:-flowpulse_user};Password=${POSTGRES_PASSWORD:-flowpulse_secure_password_2026};Include Error Detail=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

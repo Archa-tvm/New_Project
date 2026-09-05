@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FlowPulse - Business Operations & Workflow SaaS{% endblock %}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
+    <!-- Top Navigation Bar -->
+    <header class="bg-slate-800/90 border-b border-slate-700 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/30">
+                        <i class="fa-solid fa-network-wired"></i>
+                    </div>
+                    <div>
+                        <a href="{% url 'dashboard' %}" class="font-extrabold text-xl tracking-tight text-white hover:text-indigo-400 transition">
+                            FlowPulse <span class="text-xs bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold ml-1">SaaS</span>
+                        </a>
+                        <p class="text-xs text-slate-400">Hybrid Django Control Plane + C# .NET Engine</p>
+                    </div>
+                </div>
+
+                <!-- Center Nav Links -->
+                <nav class="hidden md:flex space-x-6 text-sm font-medium">
+                    <a href="{% url 'dashboard' %}" class="text-slate-200 hover:text-indigo-400 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-chart-pie text-slate-400"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="/api/v1/workflows/definitions/" target="_blank" class="text-slate-300 hover:text-indigo-400 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-code text-slate-400"></i>
+                        <span>REST API</span>
+                    </a>
+                    <a href="/admin/" target="_blank" class="text-slate-300 hover:text-indigo-400 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-shield-halved text-slate-400"></i>
+                        <span>Admin</span>
+                    </a>
+                </nav>
+
+                <!-- Engine Status Pill -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2 text-xs bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-full">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span class="text-slate-300 font-medium">PostgreSQL: Connected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Global Messages / Alerts -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 w-full">
+        {% for message in messages %}
+        <div class="p-4 rounded-xl border flex items-center space-x-3 {% if message.tags == 'success' %}bg-emerald-950/60 border-emerald-800 text-emerald-300{% elif message.tags == 'error' %}bg-rose-950/60 border-rose-800 text-rose-300{% else %}bg-indigo-950/60 border-indigo-800 text-indigo-300{% endif %}">
+            <i class="fa-solid fa-circle-info"></i>
+            <span class="text-sm font-medium">{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+            <p>FlowPulse SaaS Platform &copy; 2026. Built with Django 5, C# .NET Core & PostgreSQL.</p>
+            <div class="flex space-x-4">
+                <span class="text-slate-400"><i class="fa-brands fa-python text-amber-400 mr-1"></i> Django Control</span>
+                <span class="text-slate-400"><i class="fa-brands fa-microsoft text-cyan-400 mr-1"></i> .NET 8 Engine</span>
+                <span class="text-slate-400"><i class="fa-solid fa-database text-blue-400 mr-1"></i> PostgreSQL</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

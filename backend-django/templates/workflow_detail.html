@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ workflow.name }} - Workflow Blueprint{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-800/80 p-6 rounded-2xl border border-slate-700">
+        <div>
+            <div class="flex items-center space-x-3">
+                <h1 class="text-2xl font-bold text-white">{{ workflow.name }}</h1>
+                <span class="px-2.5 py-0.5 text-xs rounded-full bg-indigo-500/20 text-indigo-400 font-mono">v{{ workflow.version }}</span>
+                <span class="px-2.5 py-0.5 text-xs rounded-full bg-slate-700 text-slate-300">{{ workflow.get_trigger_type_display }}</span>
+            </div>
+            <p class="text-sm text-slate-400 mt-1">{{ workflow.description }}</p>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'dashboard' %}" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium transition">
+                &larr; Back to Dashboard
+            </a>
+            <button onclick="document.getElementById('run-modal').classList.remove('hidden')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-indigo-600/30 flex items-center space-x-1.5 transition">
+                <i class="fa-solid fa-play"></i>
+                <span>Run with Parameters</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Workflow Graph Visualizer / JSON Schema -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-slate-800/60 border border-slate-700 rounded-2xl p-6">
+            <h2 class="text-lg font-bold text-white mb-4">Pipeline Steps &amp; State Transition Rules</h2>
+            <div class="space-y-4">
+                {% if workflow.graph_schema.nodes %}
+                    {% for node in workflow.graph_schema.nodes %}
+                    <div class="p-4 rounded-xl border border-slate-700 bg-slate-800 flex items-start space-x-4">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 
+                            {% if node.type == 'trigger' %}bg-amber-500/20 text-amber-400
+                            {% elif node.type == 'condition' %}bg-cyan-500/20 text-cyan-400
+                            {% elif node.type == 'approval' %}bg-purple-500/20 text-purple-400
+                            {% elif node.type == 'http_webhook' %}bg-blue-500/20 text-blue-400
+                            {% else %}bg-emerald-500/20 text-emerald-400{% endif %}">
+                            <i class="fa-solid 
+                                {% if node.type == 'trigger' %}fa-bolt
+                                {% elif node.type == 'condition' %}fa-code-branch
+                                {% elif node.type == 'approval' %}fa-user-check
+                                {% elif node.type == 'http_webhook' %}fa-paper-plane
+                                {% else %}fa-check{% endif %}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-center">
+                                <h3 class="font-bold text-white text-sm">{{ node.label|default:node.id }}</h3>
+                                <span class="text-xs font-mono uppercase bg-slate-700 px-2 py-0.5 rounded text-slate-300">{{ node.type }}</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1">{{ node.description|default:"Executes automated transition logic." }}</p>
+                            {% if node.config %}
+                            <pre class="mt-2 text-[11px] bg-slate-900/80 p-2.5 rounded-lg text-slate-300 font-mono overflow-x-auto border border-slate-800">{{ node.config }}</pre>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-sm text-slate-400">Default linear pipeline schema.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-6">
+            <h2 class="text-lg font-bold text-white mb-4">Raw Blueprint Schema</h2>
+            <pre class="text-xs font-mono text-indigo-300 bg-slate-950 p-4 rounded-xl border border-slate-800 overflow-x-auto max-h-[500px]">{{ workflow.graph_schema }}</pre>
+        </div>
+    </div>
+
+    <!-- Execution Instances for this workflow -->
+    <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4">Workflow Execution Traces ({{ instances.count }})</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="border-b border-slate-700 text-xs text-slate-400 uppercase">
+                        <th class="pb-3">Trace ID</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Payload Summary</th>
+                        <th class="pb-3">Started</th>
+                        <th class="pb-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/50">
+                    {% for inst in instances %}
+                    <tr class="hover:bg-slate-800/40">
+                        <td class="py-3 font-mono text-xs text-slate-300">{{ inst.id|stringformat:".8s" }}</td>
+                        <td class="py-3">
+                            <span class="px-2 py-0.5 text-xs rounded-full {% if inst.status == 'completed' %}bg-emerald-500/20 text-emerald-400{% elif inst.status == 'waiting_approval' %}bg-amber-500/20 text-amber-400{% else %}bg-slate-700 text-slate-300{% endif %}">
+                                {{ inst.status|title }}
+                            </span>
+                        </td>
+                        <td class="py-3 text-xs text-slate-400 font-mono">{{ inst.input_payload }}</td>
+                        <td class="py-3 text-xs text-slate-400">{{ inst.started_at|timesince }} ago</td>
+                        <td class="py-3 text-right">
+                            <a href="{% url 'instance-detail' inst.id %}" class="text-xs text-indigo-400 hover:text-indigo-300">View Logs &rarr;</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-4 text-center text-slate-400 text-sm">No executions triggered for this blueprint yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Trigger Modal -->
+<div id="run-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+        <h3 class="text-lg font-bold text-white mb-2">Execute Workflow: {{ workflow.name }}</h3>
+        <p class="text-xs text-slate-400 mb-4">Dispatch this operational workflow to the C# .NET state execution engine.</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="trigger_workflow" value="1">
+            <div class="space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Requested Amount ($)</label>
+                    <input type="number" name="amount" value="7500" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Target Department</label>
+                    <input type="text" name="department" value="Infrastructure & Operations" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Vendor / Partner</label>
+                    <input type="text" name="vendor" value="PostgreSQL Global Development Group" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 text-sm">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-slate-700">
+                <button type="button" onclick="document.getElementById('run-modal').classList.add('hidden')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-indigo-600/30">
+                    Dispatch to Engine
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
